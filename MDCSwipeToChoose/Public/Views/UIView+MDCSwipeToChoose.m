@@ -155,24 +155,29 @@ const void * const MDCViewStateKey = &MDCViewStateKey;
 - (void)mdc_exitSuperviewFromTranslation:(CGPoint)translation {
     MDCSwipeDirection direction = [self mdc_directionOfExceededThreshold];
     id<MDCSwipeToChooseDelegate> delegate = self.mdc_options.delegate;
-    if ([delegate respondsToSelector:@selector(view:shouldBeChosenWithDirection:yes:no:)]) {
-        [delegate view:self shouldBeChosenWithDirection:direction yes:^{
-    MDCSwipeResult *state = [MDCSwipeResult new];
-    state.view = self;
-    state.translation = translation;
-    state.direction = direction;
-    state.onCompletion = ^{
-        if ([delegate respondsToSelector:@selector(view:wasChosenWithDirection:)]) {
-            [delegate view:self wasChosenWithDirection:direction];
-        }
+    
+    void(^yesHandler)(void) = ^{
+        MDCSwipeResult *state = [MDCSwipeResult new];
+        state.view = self;
+        state.translation = translation;
+        state.direction = direction;
+        state.onCompletion = ^{
+            if ([delegate respondsToSelector:@selector(view:wasChosenWithDirection:)]) {
+                [delegate view:self wasChosenWithDirection:direction];
+            }
+        };
+        self.mdc_options.onChosen(state);
     };
-    self.mdc_options.onChosen(state);
-        } no:^{
+    
+    if ([delegate respondsToSelector:@selector(view:shouldBeChosenWithDirection:yes:no:)]) {
+        [delegate view:self shouldBeChosenWithDirection:direction yes:yesHandler no:^{
             [self mdc_returnToOriginalCenter];
             if (self.mdc_options.onCancel != nil){
                 self.mdc_options.onCancel(self);
             }
         }];
+    } else {
+        yesHandler();
     }
 }
 
