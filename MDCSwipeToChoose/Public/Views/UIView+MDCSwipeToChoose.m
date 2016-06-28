@@ -42,8 +42,8 @@ const void * const MDCViewStateKey = &MDCViewStateKey;
     self.mdc_viewState.originalTransform = self.layer.transform;
 
     if (options.swipeEnabled) {
-        [self mdc_setupPanGestureRecognizer];
-    }
+    [self mdc_setupPanGestureRecognizer];
+}
 }
 
 - (void)mdc_swipe:(MDCSwipeDirection)direction {
@@ -121,6 +121,8 @@ const void * const MDCViewStateKey = &MDCViewStateKey;
 
 - (void)mdc_finalizePositionForDirection:(MDCSwipeDirection)direction {
     switch (direction) {
+        case MDCSwipeDirectionTop:
+        case MDCSwipeDirectionBottom:
         case MDCSwipeDirectionRight:
         case MDCSwipeDirectionLeft: {
             CGPoint translation = MDCCGPointSubtract(self.center,
@@ -155,16 +157,16 @@ const void * const MDCViewStateKey = &MDCViewStateKey;
     id<MDCSwipeToChooseDelegate> delegate = self.mdc_options.delegate;
     if ([delegate respondsToSelector:@selector(view:shouldBeChosenWithDirection:yes:no:)]) {
         [delegate view:self shouldBeChosenWithDirection:direction yes:^{
-            MDCSwipeResult *state = [MDCSwipeResult new];
-            state.view = self;
-            state.translation = translation;
-            state.direction = direction;
-            state.onCompletion = ^{
-                if ([delegate respondsToSelector:@selector(view:wasChosenWithDirection:)]) {
-                    [delegate view:self wasChosenWithDirection:direction];
-                }
-            };
-            self.mdc_options.onChosen(state);
+    MDCSwipeResult *state = [MDCSwipeResult new];
+    state.view = self;
+    state.translation = translation;
+    state.direction = direction;
+    state.onCompletion = ^{
+        if ([delegate respondsToSelector:@selector(view:wasChosenWithDirection:)]) {
+            [delegate view:self wasChosenWithDirection:direction];
+        }
+    };
+    self.mdc_options.onChosen(state);
         } no:^{
             [self mdc_returnToOriginalCenter];
             if (self.mdc_options.onCancel != nil){
@@ -176,13 +178,29 @@ const void * const MDCViewStateKey = &MDCViewStateKey;
 
 - (void)mdc_executeOnPanBlockForTranslation:(CGPoint)translation {
     if (self.mdc_options.onPan) {
-        CGFloat thresholdRatio = MIN(1.f, fabs(translation.x)/self.mdc_options.threshold);
+        CGFloat thresholdRatio = 1.0f;
 
         MDCSwipeDirection direction = MDCSwipeDirectionNone;
-        if (translation.x > 0.f) {
-            direction = MDCSwipeDirectionRight;
-        } else if (translation.x < 0.f) {
-            direction = MDCSwipeDirectionLeft;
+        
+        CGFloat kHorizontalTransitionMultplier = 1.1;
+        BOOL isVertical = fabs(translation.y) > kHorizontalTransitionMultplier * fabs(translation.x);
+        
+        if (isVertical) {
+            thresholdRatio = MIN(1.f, fabs(translation.y)/self.mdc_options.threshold.y);
+            
+            if (translation.y > 0.f) {
+                direction = MDCSwipeDirectionTop;
+            } else if (translation.y < 0.f) {
+                direction = MDCSwipeDirectionBottom;
+            }
+        } else {
+            thresholdRatio = MIN(1.f, fabs(translation.x)/self.mdc_options.threshold.x);
+            
+            if (translation.x > 0.f) {
+                direction = MDCSwipeDirectionRight;
+            } else if (translation.x < 0.f) {
+                direction = MDCSwipeDirectionLeft;
+            }
         }
 
         MDCPanState *state = [MDCPanState new];
@@ -203,16 +221,19 @@ const void * const MDCViewStateKey = &MDCViewStateKey;
 
 #pragma mark Threshold
 
-- (CGPoint)mdc_translationExceedingThreshold:(CGFloat)threshold
+- (CGPoint)mdc_translationExceedingThreshold:(CGPoint)threshold
                                    direction:(MDCSwipeDirection)direction {
     NSParameterAssert(direction != MDCSwipeDirectionNone);
 
-    CGFloat offset = threshold + 1.f;
     switch (direction) {
+        case MDCSwipeDirectionTop:
+            return CGPointMake(0, (threshold.y + 1.f));
+        case MDCSwipeDirectionBottom:
+            return CGPointMake(0, -(threshold.y + 1.f));
         case MDCSwipeDirectionLeft:
-            return CGPointMake(-offset, 0);
+            return CGPointMake(-(threshold.x + 1.f), 0);
         case MDCSwipeDirectionRight:
-            return CGPointMake(offset, 0);
+            return CGPointMake(threshold.x + 1.f, 0);
         default:
             [NSException raise:NSInternalInconsistencyException
                         format:@"Invallid direction argument."];
@@ -221,10 +242,15 @@ const void * const MDCViewStateKey = &MDCViewStateKey;
 }
 
 - (MDCSwipeDirection)mdc_directionOfExceededThreshold {
-    if (self.center.x > self.mdc_viewState.originalCenter.x + self.mdc_options.threshold) {
+    
+    if (self.center.x > self.mdc_viewState.originalCenter.x + self.mdc_options.threshold.x) {
         return MDCSwipeDirectionRight;
-    } else if (self.center.x < self.mdc_viewState.originalCenter.x - self.mdc_options.threshold) {
+    } else if (self.center.x < self.mdc_viewState.originalCenter.x - self.mdc_options.threshold.x) {
         return MDCSwipeDirectionLeft;
+    } else if (self.center.y > self.mdc_viewState.originalCenter.y + self.mdc_options.threshold.y) {
+            return MDCSwipeDirectionTop;
+    } else if (self.center.y < self.mdc_viewState.originalCenter.y - self.mdc_options.threshold.y) {
+        return MDCSwipeDirectionBottom;
     } else {
         return MDCSwipeDirectionNone;
     }

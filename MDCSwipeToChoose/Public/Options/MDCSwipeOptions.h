@@ -74,7 +74,7 @@ typedef void (^MDCSwipeToChooseOnCancelBlock)(UIView *swipedView);
  * is considered a selection in the `MDCSwipeDirectionRight` direction. A default value is
  * provided in the `-init` method.
  */
-@property (nonatomic, assign) CGFloat threshold;
+@property (nonatomic, assign) CGPoint threshold;
 
 /*!
  * When a view is panned, it is rotated slightly. Adjust this value to increase or decrease

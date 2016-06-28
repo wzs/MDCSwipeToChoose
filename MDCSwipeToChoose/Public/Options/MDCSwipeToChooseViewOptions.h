@@ -90,7 +90,7 @@
  * is considered a selection in the `MDCSwipeDirectionRight` direction. A default value is
  * provided in the `-init` method.
  */
-@property (nonatomic, assign) CGFloat threshold;
+@property (nonatomic, assign) CGPoint threshold;
 
 /*!
  * A callback to be executed when the view is panned. The block takes an instance of
